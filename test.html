@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KRA Invoice Checker - Railway Deployment</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .railway-banner {
+            background-color: #7a1bab;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            min-height: 100px;
+            font-family: inherit;
+        }
+        button {
+            background-color: #7a1bab;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #581580;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 20px;
+            display: none;
+        }
+        .result-header {
+            background-color: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px 4px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .result-content {
+            border: 1px solid #ecf0f1;
+            border-top: none;
+            padding: 15px;
+            border-radius: 0 0 4px 4px;
+        }
+        .summary {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .summary div {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .summary .total {
+            background-color: #f0f0f0;
+        }
+        .summary .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .summary .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .invoice-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .invoice-item {
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .invoice-header {
+            padding: 10px;
+            background-color: #f8f9fa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .invoice-header.success {
+            background-color: #e8f5e9;
+        }
+        .invoice-header.error {
+            background-color: #ffebee;
+        }
+        .invoice-details {
+            padding: 15px;
+            display: none;
+        }
+        .invoice-details.open {
+            display: block;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 5px;
+        }
+        .detail-label {
+            font-weight: bold;
+            width: 200px;
+            color: #555;
+        }
+        .detail-value {
+            flex: 1;
+        }
+        .api-url {
+            margin-bottom: 20px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #7a1bab;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+            display: none;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .export-buttons {
+            margin-top: 10px;
+            text-align: right;
+        }
+        .export-buttons button {
+            margin-left: 5px;
+            background-color: #2c3e50;
+            font-size: 14px;
+            padding: 5px 10px;
+        }
+        .status-badge {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+        .status-badge.success {
+            background-color: #2ecc71;
+        }
+        .status-badge.error {
+            background-color: #e74c3c;
+        }
+        .api-error {
+            color: #c0392b;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+            margin: 10px 0;
+            display: none;
+        }
+        .connection-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background-color: #e74c3c; /* Default to red/disconnected */
+        }
+        .connection-indicator.connected {
+            background-color: #2ecc71; /* Green when connected */
+        }
+        .connection-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .preset-api {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .preset-api button {
+            font-size: 12px;
+            padding: 5px 10px;
+            background-color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="railway-banner">
+            <h1>KRA Invoice Checker</h1>
+            <p>Railway.app Deployment Client</p>
+        </div>
+        
+        <div class="connection-status">
+            <span class="connection-indicator" id="connectionIndicator"></span>
+            <span id="connectionStatus">Checking API connection...</span>
+        </div>
+        
+        <div class="form-group api-url">
+            <label for="apiUrl">API URL:</label>
+            <input type="text" id="apiUrl" value="https://qr-code-scanner-kra-production.up.railway.app/invoices/details" style="width: 100%; padding: 8px;">
+            <div class="preset-api">
+                <button onclick="useProductionAPI()">Use Production API</button>
+                <button onclick="useLocalAPI()">Use Local API</button>
+                <button onclick="testConnection()">Test Connection</button>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="invoiceNumbers">Enter Invoice Numbers (one per line or comma-separated):</label>
+            <textarea id="invoiceNumbers" placeholder="e.g. 0010195720000234911&#10;0010195720000234912"></textarea>
+        </div>
+        
+        <button id="checkButton" onclick="checkInvoices()">Check Invoices <span class="spinner" id="spinner"></span></button>
+        
+        <div class="api-error" id="apiError"></div>
+        
+        <div class="results" id="results">
+            <div class="result-header">
+                <h2>Results</h2>
+                <div class="export-buttons">
+                    <button onclick="exportJSON()">Export JSON</button>
+                    <button onclick="exportCSV()">Export CSV</button>
+                </div>
+            </div>
+            
+            <div class="result-content">
+                <div class="summary" id="summary">
+                    <div class="total">Total: <span id="totalCount">0</span></div>
+                    <div class="success">Success: <span id="successCount">0</span></div>
+                    <div class="error">Error: <span id="errorCount">0</span></div>
+                </div>
+                
+                <ul class="invoice-list" id="invoiceList">
+                    <!-- Invoice results will be added here dynamically -->
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Store the results globally for export
+        let currentResults = null;
+        
+        // Default API URLs
+        const PRODUCTION_API_URL = "https://kra-invoice-checker-production.up.railway.app/invoices/details";
+        const LOCAL_API_URL = "http://127.0.0.1:8000/invoices/details";
+        
+        // Test the API connection when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            testConnection();
+        });
+        
+        // Set API URL to production
+        function useProductionAPI() {
+            document.getElementById('apiUrl').value = PRODUCTION_API_URL;
+            testConnection();
+        }
+        
+        // Set API URL to local
+        function useLocalAPI() {
+            document.getElementById('apiUrl').value = LOCAL_API_URL;
+            testConnection();
+        }
+        
+        // Test the connection to the API
+        async function testConnection() {
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            const connectionIndicator = document.getElementById('connectionIndicator');
+            const connectionStatus = document.getElementById('connectionStatus');
+            
+            connectionIndicator.classList.remove('connected');
+            connectionStatus.textContent = "Testing API connection...";
+            
+            try {
+                // Try to make a simple request to test the connection
+                // We'll use the /docs endpoint which should exist in FastAPI
+                const baseUrl = apiUrl.split('/invoices/details')[0];
+                const testUrl = `${baseUrl}/docs`;
+                
+                const response = await fetch(testUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'text/html'
+                    },
+                    // Use a short timeout for the test
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    connectionIndicator.classList.add('connected');
+                    connectionStatus.textContent = "Connected to API successfully";
+                } else {
+                    connectionStatus.textContent = `API endpoint exists but returned status ${response.status}`;
+                }
+            } catch (error) {
+                console.error('Connection test error:', error);
+                connectionStatus.textContent = `Connection failed: ${error.message}`;
+            }
+        }
+        
+        // Parse invoice numbers from the textarea
+        function parseInvoiceNumbers() {
+            const input = document.getElementById('invoiceNumbers').value.trim();
+            
+            // First split by newlines, then by commas
+            const numbers = [];
+            const lines = input.split(/\n/).map(line => line.trim());
+            
+            lines.forEach(line => {
+                if (line) {
+                    // Check if the line contains commas
+                    if (line.includes(',')) {
+                        const lineNumbers = line.split(',').map(n => n.trim()).filter(Boolean);
+                        numbers.push(...lineNumbers);
+                    } else {
+                        numbers.push(line);
+                    }
+                }
+            });
+            
+            return numbers.filter(Boolean); // Remove any empty items
+        }
+        
+        // Main function to check invoices
+        async function checkInvoices() {
+            const invoiceNumbers = parseInvoiceNumbers();
+            
+            if (invoiceNumbers.length === 0) {
+                alert('Please enter at least one invoice number');
+                return;
+            }
+            
+            const apiUrl = document.getElementById('apiUrl').value.trim();
+            if (!apiUrl) {
+                alert('Please enter the API URL');
+                return;
+            }
+            
+            // Show spinner, disable button
+            const spinner = document.getElementById('spinner');
+            const checkButton = document.getElementById('checkButton');
+            const apiError = document.getElementById('apiError');
+            
+            spinner.style.display = 'inline-block';
+            checkButton.disabled = true;
+            apiError.style.display = 'none';
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        invoice_numbers: invoiceNumbers
+                    }),
+                    // Use a longer timeout since this is a production API
+                    signal: AbortSignal.timeout(45000) // 45 seconds
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API returned status ${response.status}: ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Store the results globally
+                currentResults = {
+                    timestamp: new Date().toISOString(),
+                    apiUrl: apiUrl,
+                    invoices_requested: invoiceNumbers,
+                    ...data
+                };
+                
+                // Display the results
+                displayResults(data);
+                
+            } catch (error) {
+                console.error('Error:', error);
+                apiError.textContent = `Error: ${error.message}`;
+                apiError.style.display = 'block';
+            } finally {
+                // Hide spinner, enable button
+                spinner.style.display = 'none';
+                checkButton.disabled = false;
+            }
+        }
+        
+        // Display the results in the UI
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            const invoiceList = document.getElementById('invoiceList');
+            const totalCount = document.getElementById('totalCount');
+            const successCount = document.getElementById('successCount');
+            const errorCount = document.getElementById('errorCount');
+            const apiError = document.getElementById('apiError');
+            
+            // Clear previous results
+            invoiceList.innerHTML = '';
+            
+            if (!data.results || !Array.isArray(data.results)) {
+                apiError.textContent = 'Invalid response format from API';
+                apiError.style.display = 'block';
+                return;
+            }
+            
+            const { results } = data;
+            
+            // Update summary counts
+            totalCount.textContent = results.length;
+            const successful = results.filter(r => r.status === 'success').length;
+            successCount.textContent = successful;
+            errorCount.textContent = results.length - successful;
+            
+            // Generate the invoice list items
+            results.forEach((result, index) => {
+                const isSuccess = result.status === 'success';
+                
+                const li = document.createElement('li');
+                li.className = 'invoice-item';
+                
+                // Create the invoice header (always visible)
+                const header = document.createElement('div');
+                header.className = `invoice-header ${isSuccess ? 'success' : 'error'}`;
+                header.innerHTML = `
+                    <div>
+                        <strong>${result.invoice_number}</strong>
+                        <span class="status-badge ${isSuccess ? 'success' : 'error'}">
+                            ${isSuccess ? 'SUCCESS' : 'ERROR'}
+                        </span>
+                    </div>
+                    <div>
+                        <span onclick="toggleDetails(${index})" style="cursor:pointer">
+                            ▼ View Details
+                        </span>
+                    </div>
+                `;
+                
+                // Create the invoice details (hidden by default)
+                const details = document.createElement('div');
+                details.className = 'invoice-details';
+                details.id = `invoice-details-${index}`;
+                
+                if (isSuccess && result.data) {
+                    const fields = [
+                        { label: 'Control Unit Invoice Number', key: 'Control Unit Invoice Number' },
+                        { label: 'Trader System Invoice No', key: 'Trader System Invoice No' },
+                        { label: 'Invoice Date', key: 'Invoice Date' },
+                        { label: 'Total Taxable Amount', key: 'Total Taxable Amount' },
+                        { label: 'Total Tax Amount', key: 'Total Tax Amount' },
+                        { label: 'Total Invoice Amount', key: 'Total Invoice Amount' },
+                        { label: 'Supplier Name', key: 'Supplier Name' }
+                    ];
+                    
+                    let detailsHtml = '';
+                    fields.forEach(field => {
+                        const value = result.data[field.key] || 'N/A';
+                        detailsHtml += `
+                            <div class="detail-row">
+                                <div class="detail-label">${field.label}:</div>
+                                <div class="detail-value">${value}</div>
+                            </div>
+                        `;
+                    });
+                    
+                    details.innerHTML = detailsHtml;
+                } else if (result.error) {
+                    details.innerHTML = `
+                        <div class="detail-row">
+                            <div class="detail-label">Error:</div>
+                            <div class="detail-value">${result.error}</div>
+                        </div>
+                    `;
+                }
+                
+                // Add everything to the list item
+                li.appendChild(header);
+                li.appendChild(details);
+                invoiceList.appendChild(li);
+            });
+            
+            // Show the results section
+            resultsDiv.style.display = 'block';
+        }
+        
+        // Toggle the visibility of invoice details
+        function toggleDetails(index) {
+            const detailsElement = document.getElementById(`invoice-details-${index}`);
+            if (detailsElement.classList.contains('open')) {
+                detailsElement.classList.remove('open');
+            } else {
+                detailsElement.classList.add('open');
+            }
+        }
+        
+        // Export the results as JSON
+        function exportJSON() {
+            if (!currentResults) {
+                alert('No results to export');
+                return;
+            }
+            
+            const jsonString = JSON.stringify(currentResults, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kra_invoice_results_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Export the results as CSV
+        function exportCSV() {
+            if (!currentResults || !currentResults.results) {
+                alert('No results to export');
+                return;
+            }
+            
+            const results = currentResults.results;
+            
+            // Define the CSV columns
+            const columns = [
+                'Invoice Number',
+                'Status',
+                'Error',
+                'Control Unit Invoice Number',
+                'Trader System Invoice No',
+                'Invoice Date',
+                'Total Taxable Amount',
+                'Total Tax Amount', 
+                'Total Invoice Amount',
+                'Supplier Name'
+            ];
+            
+            // Generate the CSV content
+            let csvContent = columns.join(',') + '\n';
+            
+            results.forEach(result => {
+                const row = [
+                    `"${result.invoice_number}"`,
+                    `"${result.status}"`,
+                    `"${result.error || ''}"`,
+                    `"${result.data ? (result.data['Control Unit Invoice Number'] || '') : ''}"`,
+                    `"${result.data ? (result.data['Trader System Invoice No'] || '') : ''}"`,
+                    `"${result.data ? (result.data['Invoice Date'] || '') : ''}"`,
+                    `"${result.data ? (result.data['Total Taxable Amount'] || '') : ''}"`,
+                    `"${result.data ? (result.data['Total Tax Amount'] || '') : ''}"`,
+                    `"${result.data ? (result.data['Total Invoice Amount'] || '') : ''}"`,
+                    `"${result.data ? (result.data['Supplier Name'] || '') : ''}"`,
+                ];
+                
+                csvContent += row.join(',') + '\n';
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `kra_invoice_results_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 import re
 import uvicorn
 import logging
+from fastapi.middleware.cors import CORSMiddleware
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,15 @@ app = FastAPI(
     title="KRA Invoice Checker API",
     description="API to fetch invoice details from the KRA iTax portal.",
     version="1.1.0" # Updated version
+)
+
+# Add CORS middleware to allow all origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Base URL for the KRA invoice check
@@ -310,4 +320,5 @@ async def get_invoice_details_multiple(request_body: InvoiceNumbersRequest):
 
 
 # To run the application:
-# uvicorn main:app --reload
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
