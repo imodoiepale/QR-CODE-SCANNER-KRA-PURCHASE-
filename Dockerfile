@@ -14,8 +14,6 @@ RUN apt-get update && apt-get install -y libxml2-dev libxslt-dev gcc && \
 # Copy application code
 COPY . .
 
-# Expose the port
-EXPOSE $PORT
-
 # Command to run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "${PORT:-8000}"]
+# Railway.app sets the PORT environment variable automatically
+CMD uvicorn main:app --host 0.0.0.0 --port 8000
