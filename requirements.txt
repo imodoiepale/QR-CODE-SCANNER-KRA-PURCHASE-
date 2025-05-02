@@ -1,0 +1,6 @@
+fastapi==0.111.0 # Example version, you can use the latest or desired version
+uvicorn[standard]==0.29.0 # Example version, [standard] includes common dependencies like websockets
+requests==2.32.3 # Example version
+beautifulsoup4==4.12.3 # Example version
+lxml==5.2.2 # Example version (recommended parser for BeautifulSoup)
+pydantic==2.7.1 # Example version
