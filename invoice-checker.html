@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KRA Invoice Checker</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: inherit;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 10px 0;
+        }
+        .result {
+            display: none;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+        }
+        .error {
+            color: #e74c3c;
+            padding: 10px;
+            background-color: #f9e7e7;
+            border-radius: 4px;
+            margin-top: 10px;
+            display: none;
+        }
+        .detail-row {
+            display: flex;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #f0f0f0;
+            padding-bottom: 8px;
+        }
+        .detail-label {
+            font-weight: bold;
+            width: 200px;
+            color: #555;
+        }
+        .detail-value {
+            flex: 1;
+        }
+        .success {
+            color: #27ae60;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KRA Invoice Checker</h1>
+        
+        <div class="form-group">
+            <label for="invoiceNumber">Invoice Number:</label>
+            <input type="text" id="invoiceNumber" placeholder="Enter invoice number" autocomplete="off">
+        </div>
+        
+        <button id="checkButton" onclick="checkInvoice()">Check Invoice</button>
+        
+        <div id="loading" class="loading">
+            Checking invoice... Please wait.
+        </div>
+        
+        <div id="error" class="error"></div>
+        
+        <div id="result" class="result">
+            <h2>Invoice Details</h2>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        // API URL - change this if your server is running on a different port
+        const API_URL = "http://localhost:3000/api/invoice";
+        
+        async function checkInvoice() {
+            const invoiceNumber = document.getElementById('invoiceNumber').value.trim();
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const result = document.getElementById('result');
+            const resultContent = document.getElementById('resultContent');
+            const checkButton = document.getElementById('checkButton');
+            
+            // Reset previous results
+            error.style.display = 'none';
+            result.style.display = 'none';
+            
+            // Validate input
+            if (!invoiceNumber) {
+                error.textContent = 'Please enter an invoice number';
+                error.style.display = 'block';
+                return;
+            }
+            
+            // Show loading, disable button
+            loading.style.display = 'block';
+            checkButton.disabled = true;
+            
+            try {
+                // Make API request
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ invoiceNumber })
+                });
+                
+                // Handle non-OK responses
+                if (!response.ok) {
+                    let errorMessage = `Server error (${response.status})`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorMessage;
+                    } catch (e) {
+                        // If we can't parse JSON, just use the standard error
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                // Parse the response
+                const data = await response.json();
+                
+                // Display result
+                if (data.status === 'success' && data.data) {
+                    // Format and display the invoice details
+                    displayInvoiceDetails(data.data);
+                    result.style.display = 'block';
+                } else {
+                    // Handle API success but no data
+                    throw new Error(data.message || 'No invoice data returned');
+                }
+                
+            } catch (err) {
+                // Display error message
+                error.textContent = err.message;
+                error.style.display = 'block';
+                console.error('Error:', err);
+            } finally {
+                // Hide loading, enable button
+                loading.style.display = 'none';
+                checkButton.disabled = false;
+            }
+        }
+        
+        function displayInvoiceDetails(invoice) {
+            const resultContent = document.getElementById('resultContent');
+            
+            // Create the display HTML
+            let html = '';
+            
+            // Status badge
+            html += `<div class="detail-row">
+                <div class="detail-label">Status:</div>
+                <div class="detail-value ${invoice.status === 'success' ? 'success' : ''}">
+                    ${invoice.status === 'success' ? 'SUCCESS' : 'ERROR'}
+                </div>
+            </div>`;
+            
+            // If error, show the error message
+            if (invoice.status !== 'success') {
+                html += `<div class="detail-row">
+                    <div class="detail-label">Error:</div>
+                    <div class="detail-value">${invoice.error || 'Unknown error'}</div>
+                </div>`;
+                resultContent.innerHTML = html;
+                return;
+            }
+            
+            // If there is invoice data, show it
+            if (invoice.data) {
+                // Define fields to display
+                const fields = [
+                    { label: 'Control Unit Invoice Number', key: 'Control Unit Invoice Number' },
+                    { label: 'Trader System Invoice No', key: 'Trader System Invoice No' },
+                    { label: 'Invoice Date', key: 'Invoice Date' },
+                    { label: 'Total Taxable Amount', key: 'Total Taxable Amount' },
+                    { label: 'Total Tax Amount', key: 'Total Tax Amount' },
+                    { label: 'Total Invoice Amount', key: 'Total Invoice Amount' },
+                    { label: 'Supplier Name', key: 'Supplier Name' }
+                ];
+                
+                // Add each field to the HTML
+                fields.forEach(field => {
+                    const value = invoice.data[field.key] || 'N/A';
+                    html += `<div class="detail-row">
+                        <div class="detail-label">${field.label}:</div>
+                        <div class="detail-value">${value}</div>
+                    </div>`;
+                });
+            }
+            
+            resultContent.innerHTML = html;
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('invoiceNumber').addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                checkInvoice();
+            }
+        });
+    </script>
+</body>
+</html>

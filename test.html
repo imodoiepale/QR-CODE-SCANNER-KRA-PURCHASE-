@@ -586,10 +586,10 @@
             
             results.forEach(result => {
                 const row = [
-                    `"${result.invoice_number}"`,
+                    `"'${result.invoice_number}"`,
                     `"${result.status}"`,
                     `"${result.error || ''}"`,
-                    `"${result.data ? (result.data['Control Unit Invoice Number'] || '') : ''}"`,
+                    `'${result.data ? (result.data['Control Unit Invoice Number'] || '') : ''}`,
                     `"${result.data ? (result.data['Trader System Invoice No'] || '') : ''}"`,
                     `"${result.data ? (result.data['Invoice Date'] || '') : ''}"`,
                     `"${result.data ? (result.data['Total Taxable Amount'] || '') : ''}"`,

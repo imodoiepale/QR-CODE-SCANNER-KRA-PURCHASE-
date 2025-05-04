@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Scanner API Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .upload-container, .camera-container, .result-container {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #video {
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 300px;
+            border: 1px solid #ddd;
+            display: none;
+            margin-top: 10px;
+        }
+        #results {
+            white-space: pre-wrap;
+            font-family: monospace;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 4px;
+            display: none;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+        .loading:after {
+            content: "...";
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: "."; }
+            40% { content: ".."; }
+            60%, 100% { content: "..."; }
+        }
+    </style>
+</head>
+<body>
+    <h1>QR Code Scanner API Demo</h1>
+    
+    <div class="tabs">
+        <div class="tab active" data-tab="upload">Upload Image</div>
+        <div class="tab" data-tab="camera">Use Camera</div>
+    </div>
+    
+    <div class="container">
+        <div id="upload-tab" class="tab-content active">
+            <div class="upload-container">
+                <h2>Upload QR Code Image</h2>
+                <p>Select an image containing a QR code to scan:</p>
+                <input type="file" id="fileInput" accept="image/*">
+                <img id="preview" alt="Image preview">
+                <div class="loading" id="uploadLoading">Processing</div>
+                <button id="scanButton" class="btn" disabled>Scan QR Code</button>
+            </div>
+        </div>
+        
+        <div id="camera-tab" class="tab-content">
+            <div class="camera-container">
+                <h2>Scan QR Code with Camera</h2>
+                <p>Use your camera to scan a QR code:</p>
+                <video id="video" autoplay></video>
+                <div class="loading" id="cameraLoading">Processing</div>
+                <div>
+                    <button id="startCamera" class="btn">Start Camera</button>
+                    <button id="captureButton" class="btn" disabled>Capture and Scan</button>
+                    <button id="stopCamera" class="btn" disabled>Stop Camera</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="result-container">
+            <h2>Scan Results</h2>
+            <p id="resultCount"></p>
+            <pre id="results"></pre>
+        </div>
+    </div>
+
+    <script>
+        // API Endpoint
+        const API_URL = '/api/scan';
+        const API_URL_BASE64 = '/api/scan-base64';
+        
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const preview = document.getElementById('preview');
+        const scanButton = document.getElementById('scanButton');
+        const results = document.getElementById('results');
+        const resultCount = document.getElementById('resultCount');
+        const video = document.getElementById('video');
+        const startCameraBtn = document.getElementById('startCamera');
+        const captureButton = document.getElementById('captureButton');
+        const stopCameraBtn = document.getElementById('stopCamera');
+        const uploadLoading = document.getElementById('uploadLoading');
+        const cameraLoading = document.getElementById('cameraLoading');
+        
+        // Tab Elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        // Stream variable
+        let stream = null;
+        
+        // Tab functionality
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+                
+                // If switching away from camera tab, stop the camera
+                if (tabId !== 'camera' && stream) {
+                    stopCamera();
+                }
+            });
+        });
+        
+        // Preview uploaded image
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                    scanButton.disabled = false;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+                scanButton.disabled = true;
+            }
+        });
+        
+        // Scan uploaded image
+        scanButton.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            uploadLoading.style.display = 'block';
+            scanButton.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                console.error('Error:', error);
+                results.innerText = `Error: ${error.message}`;
+                results.style.display = 'block';
+                resultCount.innerText = 'Failed to scan QR code.';
+            } finally {
+                uploadLoading.style.display = 'none';
+                scanButton.disabled = false;
+            }
+        });
+        
+        // Start Camera
+        startCameraBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                video.srcObject = stream;
+                startCameraBtn.disabled = true;
+                stopCameraBtn.disabled = false;
+                captureButton.disabled = false;
+            } catch (error) {
+                console.error('Error accessing camera:', error);
+                resultCount.innerText = `Error accessing camera: ${error.message}`;
+            }
+        });
+        
+        // Stop Camera
+        stopCameraBtn.addEventListener('click', stopCamera);
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                video.srcObject = null;
+                startCameraBtn.disabled = false;
+                stopCameraBtn.disabled = true;
+                captureButton.disabled = true;
+            }
+        }
+        
+        // Capture and scan
+        captureButton.addEventListener('click', async () => {
+            if (!stream) return;
+            
+            cameraLoading.style.display = 'block';
+            captureButton.disabled = true;
+            
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageDataUrl = canvas.toDataURL('image/png');
+            const base64Image = imageDataUrl.split(',')[1];
+            
+            try {
+                const response = await fetch(API_URL_BASE64, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ base64_image: base64Image })
+                });
+                
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                console.error('Error:', error);
+                results.innerText = `Error: ${error.message}`;
+                results.style.display = 'block';
+                resultCount.innerText = 'Failed to scan QR code.';
+            } finally {
+                cameraLoading.style.display = 'none';
+                captureButton.disabled = false;
+            }
+        });
+        
+        // Display results
+        function displayResults(data) {
+            results.innerText = JSON.stringify(data, null, 2);
+            results.style.display = 'block';
+            
+            if (data.status === 'success') {
+                resultCount.innerText = data.message;
+                
+                if (data.count > 0) {
+                    // Extract decoded data for easy viewing
+                    const decodedValues = data.results.map((result, index) => 
+                        `${index + 1}. Type: ${result.type}, Data: ${result.data}`
+                    ).join('\n');
+                    
+                    results.innerText = decodedValues + '\n\n' + results.innerText;
+                }
+            } else {
+                resultCount.innerText = data.message || 'Error scanning QR code';
+            }
+        }
+    </script>
+</body>
+</html>
